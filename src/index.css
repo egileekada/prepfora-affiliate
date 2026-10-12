@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* @custom-variant dark (&:is(.dark *)); */
+
+@theme {
+    --font-sans: "font", sans-serif;
+    --font-mono: "monospace", monospace;
+}
+
+:root {
+    color-scheme: light;
+    /* ==========================
+	   Primary
+	========================== */
+    --primary-50: #eaeffa;
+    --primary-100: #c3d4fa;
+    --primary-150: #9cbaf8;
+    --primary-200: #769ef5;
+    --primary-250: #4f82f1;
+    --primary-300: #2563eb;
+    --primary-350: #1b52c9;
+    --primary-400: #1242a8;
+    --primary-450: #093288;
+    --primary-500: #03226a;
+    --primary-550: #00144d;
+
+    /* ==========================
+	   Secondary (Success)
+	========================== */
+    --secondary-50: #eafaf5;
+    --secondary-100: #cdf0e4;
+    --secondary-150: #afe5d2;
+    --secondary-200: #91dbbf;
+    --secondary-250: #71d0ab;
+    --secondary-300: #4dc497;
+    --secondary-350: #10b981;
+    --secondary-400: #069d6e;
+    --secondary-450: #01815b;
+    --secondary-500: #006649;
+    --secondary-550: #004d37;
+
+    /* ==========================
+	   Accent (Warning)
+	========================== */
+    --accent-50: #fbf5e9;
+    --accent-100: #f8e6c6;
+    --accent-150: #f6d6a2;
+    --accent-200: #f6c47d;
+    --accent-250: #f5b253;
+    --accent-300: #f59e0b;
+    --accent-350: #d08802;
+    --accent-400: #ad7200;
+    --accent-450: #8b5d00;
+    --accent-500: #6b4800;
+    --accent-550: #4d3400;
+
+    /* ==========================
+	   Error
+	========================== */
+    --error-50: #faeaea;
+    --error-100: #fdcccb;
+    --error-150: #fdadac;
+    --error-200: #fa8e8b;
+    --error-250: #f66c69;
+    --error-300: #ef4444;
+    --error-350: #cc3734;
+    --error-400: #aa2924;
+    --error-450: #8a1c16;
+    --error-500: #6b1008;
+    --error-550: #4d0400;
+
+    /* ==========================
+	   Neutral
+	========================== */
+    --neutral-50: #f2f2f2;
+    --neutral-100: #d2d2d2;
+    --neutral-150: #b3b3b3;
+    --neutral-200: #949494;
+    --neutral-250: #777777;
+    --neutral-300: #5b5b5b;
+    --neutral-350: #414141;
+    --neutral-400: #282828;
+    --neutral-450: #111111;
+    --neutral-500: #080807;
+    --neutral-550: #030202;
+}
+
+@theme inline {
+    /* Primary */
+    --color-primary-50: var(--primary-50);
+    --color-primary-100: var(--primary-100);
+    --color-primary-150: var(--primary-150);
+    --color-primary-200: var(--primary-200);
+    --color-primary-250: var(--primary-250);
+    --color-primary-300: var(--primary-300);
+    --color-primary-350: var(--primary-350);
+    --color-primary-400: var(--primary-400);
+    --color-primary-450: var(--primary-450);
+    --color-primary-500: var(--primary-500);
+    --color-primary-550: var(--primary-550);
+
+    /* Secondary */
+    --color-secondary-50: var(--secondary-50);
+    --color-secondary-100: var(--secondary-100);
+    --color-secondary-150: var(--secondary-150);
+    --color-secondary-200: var(--secondary-200);
+    --color-secondary-250: var(--secondary-250);
+    --color-secondary-300: var(--secondary-300);
+    --color-secondary-350: var(--secondary-350);
+    --color-secondary-400: var(--secondary-400);
+    --color-secondary-450: var(--secondary-450);
+    --color-secondary-500: var(--secondary-500);
+    --color-secondary-550: var(--secondary-550);
+
+    /* Accent */
+    --color-accent-50: var(--accent-50);
+    --color-accent-100: var(--accent-100);
+    --color-accent-150: var(--accent-150);
+    --color-accent-200: var(--accent-200);
+    --color-accent-250: var(--accent-250);
+    --color-accent-300: var(--accent-300);
+    --color-accent-350: var(--accent-350);
+    --color-accent-400: var(--accent-400);
+    --color-accent-450: var(--accent-450);
+    --color-accent-500: var(--accent-500);
+    --color-accent-550: var(--accent-550);
+
+    /* Error */
+    --color-error-50: var(--error-50);
+    --color-error-100: var(--error-100);
+    --color-error-150: var(--error-150);
+    --color-error-200: var(--error-200);
+    --color-error-250: var(--error-250);
+    --color-error-300: var(--error-300);
+    --color-error-350: var(--error-350);
+    --color-error-400: var(--error-400);
+    --color-error-450: var(--error-450);
+    --color-error-500: var(--error-500);
+    --color-error-550: var(--error-550);
+
+    /* Neutral */
+    --color-neutral-50: var(--neutral-50);
+    --color-neutral-100: var(--neutral-100);
+    --color-neutral-150: var(--neutral-150);
+    --color-neutral-200: var(--neutral-200);
+    --color-neutral-250: var(--neutral-250);
+    --color-neutral-300: var(--neutral-300);
+    --color-neutral-350: var(--neutral-350);
+    --color-neutral-400: var(--neutral-400);
+    --color-neutral-450: var(--neutral-450);
+    --color-neutral-500: var(--neutral-500);
+    --color-neutral-550: var(--neutral-550);
+
+    /* Fonts */
+    --font-sans: var(--font-inter);
+    --font-heading: var(--font-nohemi), var(--font-inter);
+}
