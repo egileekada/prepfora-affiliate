@@ -1,32 +1,33 @@
-import { useState, useRef, useEffect, type FormEvent, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Formik, Form } from 'formik'
 import { AuthLayout } from '../components/auth/AuthLayout'
-import { CustomButton, CustomText } from '@/components/ui'
+import { CustomButton, CustomText, OTPInput } from '@/components/ui'
+import { useAuthApi } from '@/hooks'
+import { showSuccess, showError } from '@/config/toast'
 
-const API_BASE_URL = 'https://prepforabackend-production.up.railway.app'
+interface VerifyFormValues {
+  otp: string
+}
 
 export function VerifyPage() {
   const [searchParams] = useSearchParams()
   const email = searchParams.get('email') || ''
   const navigate = useNavigate()
 
-  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', ''])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const { validateOtp, resendOtp, isLoading, error, successMessage } =
+    useAuthApi()
+
   const [resendCooldown, setResendCooldown] = useState(60)
-  const [isVerified, setIsVerified] = useState(false)
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-
-  // Redirect to login if no email is provided
+  // Redirect to login if no email is provided in search params
   useEffect(() => {
     if (!email) {
       navigate('/login', { replace: true })
     }
   }, [email, navigate])
 
-  // Countdown for resend
+  // Countdown for resend timer
   useEffect(() => {
     if (resendCooldown <= 0) return
     const timer = setInterval(() => {
@@ -35,142 +36,32 @@ export function VerifyPage() {
     return () => clearInterval(timer)
   }, [resendCooldown])
 
-  // Focus first input on mount
-  useEffect(() => {
-    inputRefs.current[0]?.focus()
-  }, [])
-
-  const handleOtpChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1)
-    const newOtp = [...otp]
-    newOtp[index] = digit
-    setOtp(newOtp)
-    setError(null)
-
-    if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus()
+  const handleOtpSubmit = async (values: VerifyFormValues) => {
+    const code = values.otp.trim()
+    if (!email || code.length !== 6) {
+      showError('Please enter all 6 digits.')
+      return
     }
 
-    if (digit && index === 5 && newOtp.every((d) => d !== '')) {
-      setTimeout(() => {
-        const fullCode = newOtp.join('')
-        if (fullCode.length === 6) {
-          submitOtp(fullCode)
-        }
-      }, 50)
-    }
-  }
+    const result = await validateOtp(email, code)
 
-  const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (!pasted) return
-
-    const newOtp = [...otp]
-    for (let i = 0; i < pasted.length; i++) {
-      newOtp[i] = pasted[i]
-    }
-    setOtp(newOtp)
-
-    const nextIndex = Math.min(pasted.length, 5)
-    inputRefs.current[nextIndex]?.focus()
-
-    if (pasted.length === 6) {
-      submitOtp(pasted)
-    }
-  }
-
-  const submitOtp = async (code: string) => {
-    if (!email || code.length < 6) return
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/validate-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          otp: code.trim(),
-        }),
-      })
-
-      const data = await response.json().catch(() => null)
-
-      if (response.ok && data?.success !== false) {
-        if (data?.data?.access_token || data?.access_token) {
-          const accessToken = data?.data?.access_token || data?.access_token
-          const refreshToken = data?.data?.refresh_token || data?.refresh_token
-          const user = data?.data?.user || data?.user || { email }
-
-          localStorage.setItem('prepfora_access_token', accessToken)
-          if (refreshToken) {
-            localStorage.setItem('prepfora_refresh_token', refreshToken)
-          }
-          localStorage.setItem('prepfora_user', JSON.stringify(user))
-
-          navigate('/dashboard', { replace: true })
-          return
-        }
-
-        setIsVerified(true)
-        setSuccessMessage('Email verified successfully! Redirecting to login...')
-        setTimeout(() => {
-          navigate('/login')
-        }, 2000)
-      } else {
-        setError(data?.message || 'Invalid or expired code. Please try again.')
-      }
-    } catch {
-      setError('Network connection error. Please check your internet connection.')
-    } finally {
-      setIsLoading(false)
+    if (result.success) {
+      showSuccess('Verification successful! Welcome to your dashboard.')
+      navigate('/dashboard', { replace: true })
+    } else {
+      showError(result.message || 'Invalid or expired code. Please try again.')
     }
   }
 
   const handleResend = async () => {
-    if (resendCooldown > 0 || isLoading) return
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      })
-
-      const data = await response.json().catch(() => null)
-
-      if (response.ok && data?.success !== false) {
-        setSuccessMessage('A new verification code has been sent to your email.')
-        setResendCooldown(60)
-        setOtp(['', '', '', '', '', ''])
-        inputRefs.current[0]?.focus()
-      } else {
-        setError(data?.message || 'Failed to resend code. Please try again.')
-      }
-    } catch {
-      setError('Network connection error. Failed to resend code.')
-    } finally {
-      setIsLoading(false)
+    if (resendCooldown > 0 || isLoading || !email) return
+    const result = await resendOtp(email)
+    if (result.success) {
+      setResendCooldown(60)
+      showSuccess('A new verification code has been sent to your email.')
+    } else {
+      showError(result.message || 'Failed to resend code.')
     }
-  }
-
-  const handleFormSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    const fullCode = otp.join('')
-    if (fullCode.length !== 6) {
-      setError('Please enter all 6 digits.')
-      return
-    }
-    submitOtp(fullCode)
   }
 
   return (
@@ -213,101 +104,74 @@ export function VerifyPage() {
           </CustomText>
         </div>
 
-        {/* Form Card or Success Confirmation */}
-        {isVerified ? (
-          <div className="w-full p-8 flex flex-col items-center gap-4 rounded-2xl bg-white shadow-sm border border-neutral-100/90 text-center">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl font-bold">
-              ✓
-            </div>
-            <CustomText type="title-lg" className="text-xl font-bold text-neutral-900">
-              Email Verified!
-            </CustomText>
-            <CustomText type="body-md" className="text-neutral-600 text-sm">
-              Your email <strong className="text-neutral-800">{email}</strong> has been successfully verified.
-            </CustomText>
-            <CustomButton
-              variant="primary"
-              onPress={() => navigate('/login')}
-              className="mt-2 bg-[#2563eb] text-white"
-            >
-              Back to Log In
-            </CustomButton>
-          </div>
-        ) : (
-          <form
-            onSubmit={handleFormSubmit}
-            className="w-full p-6 sm:p-7 flex flex-col gap-6 rounded-2xl bg-white shadow-sm border border-neutral-100/90"
-          >
-            {/* 6 Digit Inputs */}
-            <div className="grid grid-cols-6 gap-2 sm:gap-3 w-full">
-              {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => {
-                    inputRefs.current[index] = el
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleOtpChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={handlePaste}
-                  placeholder={String(index + 1)}
-                  className="w-full h-12 sm:h-14 text-center text-lg sm:text-xl font-medium border border-neutral-300 rounded-xl bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-100 transition"
-                />
-              ))}
-            </div>
+        {/* Form Card */}
+        <Formik
+          initialValues={{ otp: '' }}
+          onSubmit={handleOtpSubmit}
+        >
+            {({ values }) => (
+              <Form className="w-full p-6 sm:p-7 flex flex-col gap-6 rounded-2xl bg-white shadow-sm border border-neutral-100/90">
+                {/* 6 Digit HeroUI OTP Input */}
+                <div className="flex justify-center w-full">
+                  <OTPInput
+                    name="otp"
+                    length={6}
+                    isLoading={isLoading}
+                    error={Boolean(error)}
+                  />
+                </div>
 
-            {/* Error Banner */}
-            {error && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
-                <CustomText type="body-sm">{error}</CustomText>
-              </div>
-            )}
+                {/* Error Banner */}
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                    <CustomText type="body-sm">{error}</CustomText>
+                  </div>
+                )}
 
-            {/* Success Banner */}
-            {successMessage && !error && (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
-                <CustomText type="body-sm">{successMessage}</CustomText>
-              </div>
-            )}
+                {/* Success Banner */}
+                {successMessage && !error && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                    <CustomText type="body-sm">{successMessage}</CustomText>
+                  </div>
+                )}
 
-            {/* Continue Button */}
-            <CustomButton
-              type="submit"
-              variant="primary"
-              fullWidth
-              size="md"
-              loading={isLoading}
-              disabled={otp.some((d) => d === '')}
-              className="bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-sm rounded-xl"
-            >
-              Continue
-            </CustomButton>
-
-            {/* Resend Code Link */}
-            <div className="text-center text-xs text-neutral-500 pt-1">
-              <span>Didn't receive the code? </span>
-              {resendCooldown > 0 ? (
-                <span className="font-semibold text-neutral-700">
-                  Resend in {resendCooldown}s
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={isLoading}
-                  className="text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                {/* Continue Button */}
+                <CustomButton
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  size="md"
+                  loading={isLoading}
+                  disabled={isLoading || values.otp.length !== 6}
+                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-sm rounded-xl"
                 >
-                  Resend code
-                </button>
-              )}
-            </div>
-          </form>
-        )}
+                  Continue
+                </CustomButton>
+
+                {/* Resend Code Link */}
+                <div className="text-center text-xs text-neutral-500 pt-1">
+                  <span>Didn't receive the code? </span>
+                  {resendCooldown > 0 ? (
+                    <span className="font-semibold text-neutral-700">
+                      Resend in {resendCooldown}s
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={isLoading}
+                      className="text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                    >
+                      Resend code
+                    </button>
+                  )}
+                </div>
+              </Form>
+            )}
+          </Formik>
       </div>
     </AuthLayout>
   )
 }
+
+export default VerifyPage

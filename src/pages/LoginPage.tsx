@@ -1,79 +1,57 @@
-import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Formik, Form } from 'formik'
 import { AuthLayout } from '../components/auth/AuthLayout'
-import { CustomButton, CustomText, CustomField } from '@/components/ui'
+import { CustomButton, CustomText, FormikField } from '@/components/ui'
+import { useAuthApi } from '@/hooks'
+import { showSuccess, showError } from '@/config/toast'
 
-const API_BASE_URL = 'https://prepforabackend-production.up.railway.app'
+interface LoginFormValues {
+  email: string
+}
 
 export function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const { login, register, isLoading, error } = useAuthApi()
 
-  const handleLoginSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    const cleanEmail = email.trim().toLowerCase()
-    if (!cleanEmail) {
-      setError('Please enter a valid email address.')
-      return
+  const initialValues: LoginFormValues = {
+    email: '',
+  }
+
+  const validate = (values: LoginFormValues) => {
+    const errors: Partial<Record<keyof LoginFormValues, string>> = {}
+    const trimmed = values.email.trim()
+
+    if (!trimmed) {
+      errors.email = 'Email address is required.'
+    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(trimmed)) {
+      errors.email = 'Please enter a valid email address.'
     }
 
-    setIsLoading(true)
-    setError(null)
+    return errors
+  }
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
-      })
+  const handleSubmit = async (values: LoginFormValues) => {
+    const cleanEmail = values.email.trim().toLowerCase()
+    const result = await login(cleanEmail)
 
-      const data = await response.json().catch(() => null)
-
-      if (response.ok && data?.success !== false) {
-        navigate(`/verify?email=${encodeURIComponent(cleanEmail)}`)
-      } else {
-        if (data?.message?.toLowerCase().includes('does not exist')) {
-          setError(
-            'No account found with this email. Click "Create Account" below to register and receive your verification code.'
-          )
-        } else {
-          setError(data?.message || 'Failed to send login code. Please try again.')
-        }
-      }
-    } catch {
-      setError('Network connection error. Please check your internet connection.')
-    } finally {
-      setIsLoading(false)
+    if (result.success) {
+      showSuccess(result.message || 'Verification code sent to your email.')
+      navigate(`/verify?email=${encodeURIComponent(cleanEmail)}`)
+    } else {
+      showError(result.message || 'Failed to send login code.')
     }
   }
 
-  const handleRegister = async () => {
+  const handleRegisterClick = async (email: string) => {
     const cleanEmail = email.trim().toLowerCase()
     if (!cleanEmail) return
 
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
-      })
-
-      const data = await response.json().catch(() => null)
-
-      if (response.ok && data?.success !== false) {
-        navigate(`/verify?email=${encodeURIComponent(cleanEmail)}`)
-      } else {
-        setError(data?.message || 'Registration failed. Please try again.')
-      }
-    } catch {
-      setError('Network error during registration.')
-    } finally {
-      setIsLoading(false)
+    const result = await register(cleanEmail)
+    if (result.success) {
+      showSuccess('Account created! Verification code sent to your email.')
+      navigate(`/verify?email=${encodeURIComponent(cleanEmail)}`)
+    } else {
+      showError(result.message || 'Registration failed.')
     }
   }
 
@@ -91,55 +69,59 @@ export function LoginPage() {
         </div>
 
         {/* Form Card */}
-        <form
-          onSubmit={handleLoginSubmit}
-          className="w-full p-6 sm:p-7 flex flex-col gap-5 rounded-2xl bg-white shadow-sm border border-neutral-100/90"
+        <Formik
+          initialValues={initialValues}
+          validate={validate}
+          onSubmit={handleSubmit}
         >
-          <div>
-            <CustomField
-              label="Email *"
-              type="email"
-              value={email}
-              onChange={(val) => {
-                setEmail(String(val))
-                setError(null)
-              }}
-              placeholder="janedoe@mail.com"
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Error Banner */}
-          {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs leading-relaxed">
-              <CustomText type="body-sm">{error}</CustomText>
-              {error.includes('Create Account') && (
-                <button
-                  type="button"
-                  onClick={handleRegister}
+          {({ values, isValid, dirty }) => (
+            <Form className="w-full p-6 sm:p-7 flex flex-col gap-5 rounded-2xl bg-white shadow-sm border border-neutral-100/90">
+              <div>
+                <FormikField
+                  name="email"
+                  label="Email *"
+                  type="email"
+                  placeholder="janedoe@mail.com"
                   disabled={isLoading}
-                  className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline block cursor-pointer"
-                >
-                  Create Account Now
-                </button>
-              )}
-            </div>
-          )}
+                  className="w-full"
+                />
+              </div>
 
-          {/* Submit Button */}
-          <CustomButton
-            type="submit"
-            variant="primary"
-            fullWidth
-            size="md"
-            loading={isLoading}
-            disabled={!email.trim()}
-            className="bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-sm rounded-xl mt-1"
-          >
-            Log In
-          </CustomButton>
-        </form>
+              {/* Error Banner */}
+              {error && (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs leading-relaxed">
+                  <CustomText type="body-sm">{error}</CustomText>
+                  {error.includes('Create Account') && (
+                    <button
+                      type="button"
+                      onClick={() => handleRegisterClick(values.email)}
+                      disabled={isLoading}
+                      className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline block cursor-pointer"
+                    >
+                      Create Account Now
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <CustomButton
+                type="submit"
+                variant="primary"
+                fullWidth
+                size="md"
+                loading={isLoading}
+                disabled={isLoading || !values.email || (!isValid && dirty)}
+                className="bg-[#2563eb] hover:bg-blue-700 text-white font-semibold text-sm rounded-xl mt-1"
+              >
+                Log In
+              </CustomButton>
+            </Form>
+          )}
+        </Formik>
       </div>
     </AuthLayout>
   )
 }
+
+export default LoginPage
