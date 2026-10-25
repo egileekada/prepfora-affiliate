@@ -48,7 +48,19 @@ export function DashboardHomePage() {
   const [copied, setCopied] = useState(false)
   const [isTermsOpen, setIsTermsOpen] = useState(false)
 
-  const referralLink = 'prepfora.com/ref/jane'
+  const [user] = useState<{ name?: string; code?: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('prepfora_user')
+      if (stored) return JSON.parse(stored)
+    } catch {
+      // fallback
+    }
+    return null
+  })
+
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Partner'
+  const referralCode = user?.code || 'partner'
+  const referralLink = `prepfora.com/ref/${referralCode}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(`https://${referralLink}`)
@@ -111,7 +123,7 @@ export function DashboardHomePage() {
           type="headline-lg"
           className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight"
         >
-          Hello Jane!
+          Hello {firstName}!
         </CustomText>
       </div>
 

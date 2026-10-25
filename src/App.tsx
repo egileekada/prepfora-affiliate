@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from '@heroui/react'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { VerifyPage } from './pages/VerifyPage'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { PublicOnlyRoute } from './components/auth/PublicOnlyRoute'
@@ -14,12 +15,28 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider />
       <Routes>
-        {/* Public-only routes: Login & OTP Verification */}
+        {/* Public-only routes: Login, Register & OTP Verification */}
         <Route
           path="/login"
           element={
             <PublicOnlyRoute>
               <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicOnlyRoute>
+              <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/affiliate/register"
+          element={
+            <PublicOnlyRoute>
+              <RegisterPage />
             </PublicOnlyRoute>
           }
         />
@@ -31,6 +48,7 @@ export default function App() {
             </PublicOnlyRoute>
           }
         />
+
 
         {/* Protected Dashboard routes */}
         <Route

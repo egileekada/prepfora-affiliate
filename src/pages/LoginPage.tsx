@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+
 import { Formik, Form } from 'formik'
 import { AuthLayout } from '../components/auth/AuthLayout'
 import { CustomButton, CustomText, FormikField } from '@/components/ui'
@@ -11,7 +12,7 @@ interface LoginFormValues {
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { login, register, isLoading, error } = useAuthApi()
+  const { login, isLoading, error } = useAuthApi()
 
   const initialValues: LoginFormValues = {
     email: '',
@@ -42,17 +43,9 @@ export function LoginPage() {
     }
   }
 
-  const handleRegisterClick = async (email: string) => {
+  const handleRegisterClick = (email: string) => {
     const cleanEmail = email.trim().toLowerCase()
-    if (!cleanEmail) return
-
-    const result = await register(cleanEmail)
-    if (result.success) {
-      showSuccess('Account created! Verification code sent to your email.')
-      navigate(`/verify?email=${encodeURIComponent(cleanEmail)}`)
-    } else {
-      showError(result.message || 'Registration failed.')
-    }
+    navigate(cleanEmail ? `/register?email=${encodeURIComponent(cleanEmail)}` : '/register')
   }
 
   return (
@@ -91,14 +84,18 @@ export function LoginPage() {
               {error && (
                 <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs leading-relaxed">
                   <CustomText type="body-sm">{error}</CustomText>
-                  {error.includes('Create Account') && (
+                  {(error.toLowerCase().includes('register') ||
+                    error.toLowerCase().includes('invite') ||
+                    error.toLowerCase().includes('create account') ||
+                    error.toLowerCase().includes('not found') ||
+                    error.toLowerCase().includes('does not exist')) && (
                     <button
                       type="button"
                       onClick={() => handleRegisterClick(values.email)}
                       disabled={isLoading}
                       className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline block cursor-pointer"
                     >
-                      Create Account Now
+                      Register with Invite Code
                     </button>
                   )}
                 </div>
@@ -116,7 +113,21 @@ export function LoginPage() {
               >
                 Log In
               </CustomButton>
+
+              {/* Register Link */}
+              <div className="pt-2 border-t border-neutral-100 text-center">
+                <p className="text-xs text-neutral-600">
+                  Have an affiliate invite code?{' '}
+                  <Link
+                    to="/register"
+                    className="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                  >
+                    Register here
+                  </Link>
+                </p>
+              </div>
             </Form>
+
           )}
         </Formik>
       </div>

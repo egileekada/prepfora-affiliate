@@ -188,7 +188,7 @@ async function refreshAccessToken(): Promise<string> {
 
     // Use the unsecure instance so this call never triggers another refresh loop
     const response = await unsecureHttpService.post<RefreshApiResponse>(
-      URLS.REFRESH_TOKEN || "/auth/refresh-token",
+      URLS.AFFILIATE_REFRESH_TOKEN || URLS.REFRESH_TOKEN || "/affiliate/auth/refresh-token",
       { refresh_token: refreshToken }
     );
 
@@ -210,8 +210,12 @@ async function refreshAccessToken(): Promise<string> {
     }
 
     tokenStorage.setAccess(newAccessToken);
-    if (newRefreshToken) {
-      tokenStorage.setRefresh(newRefreshToken);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("prepfora_access_token", newAccessToken);
+      if (newRefreshToken) {
+        tokenStorage.setRefresh(newRefreshToken);
+        localStorage.setItem("prepfora_refresh_token", newRefreshToken);
+      }
     }
 
     return newAccessToken;

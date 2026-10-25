@@ -1,37 +1,61 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Logo } from '../Logo'
 import { LayoutGrid, Users, Briefcase, LogOut } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAuthApi } from '@/hooks'
+import { clearSession } from '@/config/httpService'
 
 export function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { getCurrentAffiliate } = useAuthApi()
 
-  const [user] = useState<{ name: string; email: string; role: string }>(() => {
+  const [user, setUser] = useState<{ name: string; email: string; role: string; code?: string }>(() => {
     try {
       const stored = localStorage.getItem('prepfora_user')
       if (stored) {
         const parsed = JSON.parse(stored)
+        const fullName =
+          parsed.name ||
+          (parsed.first_name
+            ? `${parsed.first_name} ${parsed.last_name || ''}`.trim()
+            : 'Affiliate Partner')
         return {
-          name: parsed.first_name ? `${parsed.first_name} ${parsed.last_name || ''}`.trim() : 'Jane Doe',
-          email: parsed.email || 'jane@prepfora.com',
-          role: 'Admin',
+          name: fullName,
+          email: parsed.email || 'partner@prepfora.com',
+          role: parsed.role || 'Affiliate',
+          code: parsed.code,
         }
       }
     } catch {
       // fallback
     }
     return {
-      name: 'Jane Doe',
-      email: 'jane@prepfora.com',
-      role: 'Admin',
+      name: 'Affiliate Partner',
+      email: 'partner@prepfora.com',
+      role: 'Affiliate',
     }
   })
 
+  useEffect(() => {
+    let mounted = true
+    getCurrentAffiliate().then((res) => {
+      if (mounted && res.success && res.affiliate) {
+        setUser({
+          name: res.affiliate.name || 'Affiliate Partner',
+          email: res.affiliate.email || 'partner@prepfora.com',
+          role: 'Affiliate',
+          code: res.affiliate.code,
+        })
+      }
+    })
+    return () => {
+      mounted = false
+    }
+  }, [getCurrentAffiliate])
+
   const handleLogout = () => {
-    localStorage.removeItem('prepfora_access_token')
-    localStorage.removeItem('prepfora_refresh_token')
-    localStorage.removeItem('prepfora_user')
+    clearSession()
     navigate('/login', { replace: true })
   }
 
@@ -103,8 +127,15 @@ export function DashboardLayout() {
         <div className="bg-[#1d4ed8] rounded-2xl p-3 flex items-center justify-between border border-blue-400/30">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-white/20 border-2 border-white/50 shrink-0 flex items-center justify-center font-bold text-sm text-white">
-              JD
+              {user.name
+                .split(' ')
+                .map((n) => n[0])
+                .filter(Boolean)
+                .join('')
+                .slice(0, 2)
+                .toUpperCase() || 'AP'}
             </div>
+
             <div className="min-w-0">
               <div className="text-sm font-semibold text-white truncate leading-tight">
                 {user.name}
