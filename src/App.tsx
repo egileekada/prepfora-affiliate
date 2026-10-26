@@ -65,7 +65,10 @@ export default function App() {
         </Route>
 
         {/* Default / fallback redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={
+          <PublicOnlyRoute>
+            <RegisterPage />
+          </PublicOnlyRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

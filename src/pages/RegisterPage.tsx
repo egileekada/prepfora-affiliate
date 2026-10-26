@@ -151,7 +151,7 @@ export function RegisterPage() {
                   label="Email Address *"
                   type="email"
                   placeholder="name@company.com"
-                  disabled={isLoading}
+                  disabled={true}
                   className="w-full"
                 />
                 {queryEmail && (
@@ -170,7 +170,7 @@ export function RegisterPage() {
                     label="6-Digit Invite Code *"
                     type="text"
                     placeholder="369362"
-                    disabled={isLoading}
+                    disabled={true}
                     className="w-full tracking-wider font-mono font-semibold"
                   />
                   <div className="absolute right-3.5 top-9.5 text-neutral-400 pointer-events-none">
