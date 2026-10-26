@@ -1,4 +1,4 @@
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams, Navigate } from 'react-router-dom'
 
 import { Formik, Form } from 'formik'
 import { AuthLayout } from '../components/auth/AuthLayout'
@@ -12,7 +12,13 @@ interface LoginFormValues {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login, isLoading, error } = useAuthApi()
+
+  const code = searchParams.get('code') || searchParams.get('invite_code')
+  if (code) {
+    return <Navigate to={`/register?${searchParams.toString()}`} replace />
+  }
 
   const initialValues: LoginFormValues = {
     email: '',
