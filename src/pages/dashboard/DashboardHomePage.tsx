@@ -1,53 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { CustomButton, CustomText, CustomTable } from '@/components/ui'
 import type { Column } from '@/components/ui'
 import { AppModal } from '@/components/layouts/modalLayout'
-import { ChevronDown, Check, Copy } from 'lucide-react'
-
-interface Referral {
-  id: string
-  name: string
-  status: 'Converted' | 'Pending'
-  subscription: string
-  joined: string
-}
-
-const mockRecentReferrals: Referral[] = [
-  {
-    id: '1',
-    name: 'Jane Doe',
-    status: 'Converted',
-    subscription: 'Paid',
-    joined: '5 days ago',
-  },
-  {
-    id: '2',
-    name: 'John Doe',
-    status: 'Converted',
-    subscription: 'Free',
-    joined: '7 days ago',
-  },
-  {
-    id: '3',
-    name: 'John Doe',
-    status: 'Converted',
-    subscription: 'Paid',
-    joined: '12 days ago',
-  },
-  {
-    id: '4',
-    name: 'James Doe',
-    status: 'Pending',
-    subscription: '-',
-    joined: '-',
-  },
-]
+import {
+  ChevronDown,
+  Check,
+  Copy,
+  ArrowRight,
+  Loader2,
+  Users,
+  RefreshCw,
+  AlertCircle,
+} from 'lucide-react'
+import {
+  useAnalyticsApi,
+  useReferralsApi,
+  getReferralStatus,
+  getReferralSubscription,
+  getReferralJoined,
+  getReferralName,
+  type ReferredUser,
+} from '@/hooks'
 
 export function DashboardHomePage() {
   const [filter, setFilter] = useState<'All' | 'Converted' | 'Pending'>('All')
   const [copied, setCopied] = useState(false)
   const [isTermsOpen, setIsTermsOpen] = useState(false)
 
+  // Local storage user fallback
   const [user] = useState<{ name?: string; code?: string } | null>(() => {
     try {
       const stored = localStorage.getItem('prepfora_user')
@@ -58,9 +39,35 @@ export function DashboardHomePage() {
     return null
   })
 
-  const firstName = user?.name ? user.name.split(' ')[0] : 'Partner'
-  const referralCode = user?.code || 'partner'
-  const referralLink = `prepfora.com/ref/${referralCode}`
+  // Analytics API
+  const {
+    analytics,
+    isLoading: isLoadingAnalytics,
+    error: analyticsError,
+    fetchAnalytics,
+  } = useAnalyticsApi()
+
+  // Referrals API (limited to 5 for recent referrals on dashboard)
+  const {
+    referredUsers,
+    isLoading: isLoadingReferrals,
+    error: referralsError,
+    fetchReferredUsers,
+  } = useReferralsApi()
+
+  useEffect(() => {
+    fetchAnalytics()
+    fetchReferredUsers({ page: 1, limit: 5 })
+  }, [fetchAnalytics, fetchReferredUsers])
+
+  const firstName = analytics?.affiliate_name
+    ? analytics.affiliate_name.split(' ')[0]
+    : user?.name
+      ? user.name.split(' ')[0]
+      : 'Partner'
+
+  const referralCode = analytics?.affiliate_code || user?.code || 'partner'
+  const referralLink = `prepfora.com/auth/signup?referral_code=${referralCode}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(`https://${referralLink}`)
@@ -68,50 +75,76 @@ export function DashboardHomePage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const filteredReferrals = mockRecentReferrals.filter((item) => {
+  const filteredReferrals = referredUsers.filter((item) => {
     if (filter === 'All') return true
-    return item.status === filter
+    return getReferralStatus(item) === filter
   })
 
-  const columns: Column<Referral>[] = [
+  const columns: Column<ReferredUser>[] = [
     {
       id: 'name',
       name: 'NAME',
-      render: (_, row) => (
-        <CustomText type="body-md-bold" className="text-gray-900 py-2 block">
-          {row.name}
-        </CustomText>
-      ),
+      render: (_, row) => {
+        const { displayName, subEmail } = getReferralName(row)
+        return (
+          <div className="py-2">
+            <CustomText
+              type="body-md-bold"
+              className="text-gray-900 block leading-tight"
+            >
+              {displayName}
+            </CustomText>
+            {subEmail && (
+              <span className="text-xs text-gray-500 font-normal block mt-0.5">
+                {subEmail}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       id: 'status',
       name: 'STATUS',
-      render: (_, row) => (
-        <span
-          className={`font-semibold text-sm ${row.status === 'Converted' ? 'text-[#10b981]' : 'text-[#b45309]'
+      render: (_, row) => {
+        const status = getReferralStatus(row)
+        return (
+          <span
+            className={`font-semibold text-sm ${
+              status === 'Converted' ? 'text-[#10b981]' : 'text-[#b45309]'
             }`}
-        >
-          {row.status}
-        </span>
-      ),
+          >
+            {status}
+          </span>
+        )
+      },
     },
     {
       id: 'subscription',
       name: 'SUBSCRIPTION',
-      render: (_, row) => (
-        <CustomText type="body-md" className="text-gray-700 font-medium">
-          {row.subscription}
-        </CustomText>
-      ),
+      render: (_, row) => {
+        const subscription = getReferralSubscription(row)
+        return (
+          <CustomText type="body-md" className="text-gray-700 font-medium">
+            {subscription}
+          </CustomText>
+        )
+      },
     },
     {
       id: 'joined',
       name: 'JOINED',
-      render: (_, row) => (
-        <CustomText type="body-md" className="text-gray-700 font-medium text-right sm:text-left">
-          {row.joined}
-        </CustomText>
-      ),
+      render: (_, row) => {
+        const joined = getReferralJoined(row)
+        return (
+          <CustomText
+            type="body-md"
+            className="text-gray-700 font-medium text-right sm:text-left"
+          >
+            {joined}
+          </CustomText>
+        )
+      },
     },
   ]
 
@@ -127,8 +160,27 @@ export function DashboardHomePage() {
         </CustomText>
       </div>
 
-      {/* Top Stat Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+      {/* Analytics Error Alert (if any) */}
+      {analyticsError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 text-red-700">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <CustomText type="body-sm" className="text-red-700 font-medium">
+              {analyticsError}
+            </CustomText>
+          </div>
+          <button
+            onClick={() => fetchAnalytics()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Top Stat Cards Grid (Dynamic from /affiliate/analytics) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         {/* Total Referrals */}
         <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <CustomText
@@ -141,39 +193,71 @@ export function DashboardHomePage() {
             type="display-sm"
             className="text-3xl sm:text-4xl font-bold text-gray-900 block"
           >
-            38
+            {isLoadingAnalytics ? (
+              <span className="inline-block w-12 h-9 bg-gray-100 animate-pulse rounded-lg" />
+            ) : (
+              analytics?.total_referrals ?? 0
+            )}
           </CustomText>
         </div>
 
-        {/* Pending Conversions */}
+        {/* Referrals This Month */}
         <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <CustomText
             type="label-md"
             className="text-xs sm:text-sm font-medium text-gray-500 mb-2 block"
           >
-            Pending Conversions
+            This Month
           </CustomText>
           <CustomText
             type="display-sm"
             className="text-3xl sm:text-4xl font-bold text-gray-900 block"
           >
-            15
+            {isLoadingAnalytics ? (
+              <span className="inline-block w-12 h-9 bg-gray-100 animate-pulse rounded-lg" />
+            ) : (
+              analytics?.referrals_this_month ?? 0
+            )}
           </CustomText>
         </div>
 
-        {/* Total Earnings */}
-        <div className="col-span-2 md:col-span-1 bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+        {/* Referrals This Week */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <CustomText
             type="label-md"
             className="text-xs sm:text-sm font-medium text-gray-500 mb-2 block"
           >
-            Total Earnings
+            This Week
           </CustomText>
           <CustomText
             type="display-sm"
             className="text-3xl sm:text-4xl font-bold text-gray-900 block"
           >
-            $530
+            {isLoadingAnalytics ? (
+              <span className="inline-block w-12 h-9 bg-gray-100 animate-pulse rounded-lg" />
+            ) : (
+              analytics?.referrals_this_week ?? 0
+            )}
+          </CustomText>
+        </div>
+
+        {/* Referrals Today */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+          <CustomText
+            type="label-md"
+            className="text-xs sm:text-sm font-medium text-gray-500 mb-2 block"
+          >
+            Today
+          </CustomText>
+          <CustomText
+            type="display-sm"
+            className="text-3xl sm:text-4xl font-bold text-gray-900 block"
+          >
+            {isLoadingAnalytics ? (
+              <span className="inline-block w-12 h-9 bg-gray-100 animate-pulse rounded-lg" />
+            ) : (
+              analytics?.referrals_today ?? 0
+            )}
           </CustomText>
         </div>
       </div>
@@ -309,16 +393,24 @@ export function DashboardHomePage() {
         </div>
       </div>
 
-      {/* Recent Referrals Section */}
+      {/* Recent Referrals Section (Live data, limited to 5 recent) */}
       <div className="space-y-4">
-        {/* Header with Title and Filter Dropdown */}
-        <div className="flex items-center justify-between">
-          <CustomText
-            type="headline-sm"
-            className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight"
-          >
-            Recent Referrals
-          </CustomText>
+        {/* Header with Title, View All Link, and Filter Dropdown */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CustomText
+              type="headline-sm"
+              className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight"
+            >
+              Recent Referrals
+            </CustomText>
+            <Link
+              to="/dashboard/referrals"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              View All <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
 
           <div className="flex items-center gap-2">
             <CustomText type="label-md" className="text-xs sm:text-sm text-gray-600">
@@ -341,48 +433,131 @@ export function DashboardHomePage() {
           </div>
         </div>
 
-        {/* Desktop Table View using CustomTable (Screenshots 2 & 5) */}
-        <div className="hidden md:block">
-          <CustomTable<Referral>
-            columns={columns}
-            rows={filteredReferrals}
-            rowKey="id"
-            className="border-none shadow-sm rounded-2xl overflow-hidden"
-            headerRowClassName="bg-[#c3d4fa] border-none"
-            headerCellClassName="py-4 px-6 text-gray-800 font-bold uppercase text-xs tracking-wider"
-            rowClassName="hover:bg-gray-50/70 border-b border-gray-100"
-          />
-        </div>
-
-        {/* Mobile Cards View (Screenshot 3) */}
-        <div className="md:hidden space-y-3">
-          {filteredReferrals.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <CustomText type="body-md-bold" className="text-gray-900 text-base">
-                  {item.name}
-                </CustomText>
-                <span
-                  className={`font-semibold text-xs ${item.status === 'Converted'
-                      ? 'text-[#10b981]'
-                      : 'text-[#b45309]'
-                    }`}
-                >
-                  {item.status}
-                </span>
-              </div>
-              <CustomText type="body-sm" className="text-xs text-gray-600 block">
-                {item.subscription === '-' ? '-' : `${item.subscription} Plan`}
-              </CustomText>
-              <CustomText type="body-sm" className="text-xs text-gray-600 block">
-                {item.joined === '-' ? '-' : `Joined ${item.joined}`}
+        {/* Referrals Error Alert */}
+        {referralsError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-red-700">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <CustomText type="body-sm" className="text-red-700 font-medium">
+                {referralsError}
               </CustomText>
             </div>
-          ))}
-        </div>
+            <button
+              onClick={() => fetchReferredUsers({ page: 1, limit: 5 })}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {isLoadingReferrals ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <CustomText type="body-sm" className="text-gray-500 font-medium">
+              Loading recent referrals...
+            </CustomText>
+          </div>
+        ) : filteredReferrals.length === 0 ? (
+          /* Empty State */
+          <div className="bg-white rounded-2xl p-10 text-center border border-gray-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+              <Users className="w-6 h-6" />
+            </div>
+            <CustomText type="body-md-bold" className="text-gray-900 text-lg">
+              No recent referrals
+            </CustomText>
+            <CustomText type="body-sm" className="text-gray-500 max-w-sm mx-auto">
+              {filter !== 'All'
+                ? 'No referrals match your current filter. Try selecting "All".'
+                : 'Share your referral link with students to start earning commissions!'}
+            </CustomText>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table View using CustomTable */}
+            <div className="hidden md:block">
+              <CustomTable<ReferredUser>
+                columns={columns}
+                rows={filteredReferrals}
+                rowKey="id"
+                className="border-none shadow-sm rounded-2xl overflow-hidden bg-white"
+                headerRowClassName="bg-[#c3d4fa] border-none"
+                headerCellClassName="py-4 px-6 text-gray-800 font-bold uppercase text-xs tracking-wider"
+                rowClassName="hover:bg-gray-50/70 border-b border-gray-100"
+                emptyText="No referrals found"
+              />
+            </div>
+
+            {/* Mobile Cards View */}
+            <div className="md:hidden space-y-3">
+              {filteredReferrals.map((item) => {
+                const { displayName, subEmail } = getReferralName(item)
+                const status = getReferralStatus(item)
+                const subscription = getReferralSubscription(item)
+                const joined = getReferralJoined(item)
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CustomText
+                          type="body-md-bold"
+                          className="text-gray-900 text-base"
+                        >
+                          {displayName}
+                        </CustomText>
+                        {subEmail && (
+                          <span className="text-xs text-gray-500 font-normal block">
+                            {subEmail}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`font-semibold text-xs ${
+                          status === 'Converted'
+                            ? 'text-[#10b981]'
+                            : 'text-[#b45309]'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <CustomText
+                      type="body-sm"
+                      className="text-xs text-gray-600 block"
+                    >
+                      {subscription === '-'
+                        ? '-'
+                        : `${subscription} Plan`}
+                    </CustomText>
+                    <CustomText
+                      type="body-sm"
+                      className="text-xs text-gray-600 block"
+                    >
+                      {joined === '-' ? '-' : `Joined ${joined}`}
+                    </CustomText>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* View All Footer Link */}
+            <div className="flex justify-end pt-1">
+              <Link
+                to="/dashboard/referrals"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                View all referrals <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Full Terms Modal */}
@@ -405,20 +580,23 @@ export function DashboardHomePage() {
       >
         <div className="text-sm text-gray-600 space-y-3 py-2">
           <CustomText type="body-md" className="block">
-            1. <strong>Commission:</strong> Affiliates earn #500 for every qualified
-            student who registers and activates a paid subscription through their unique link.
+            1. <strong>Commission:</strong> Affiliates earn #500 for every
+            qualified student who registers and activates a paid subscription
+            through their unique link.
           </CustomText>
           <CustomText type="body-md" className="block">
-            2. <strong>Payouts:</strong> Minimum withdrawal threshold is $50. Payouts are
-            processed into your registered local bank account within 24–48 hours.
+            2. <strong>Payouts:</strong> Minimum withdrawal threshold is $50.
+            Payouts are processed into your registered local bank account
+            within 24–48 hours.
           </CustomText>
           <CustomText type="body-md" className="block">
-            3. <strong>Tracking:</strong> Referral cookies remain valid for 30 days
-            from the student's initial visit.
+            3. <strong>Tracking:</strong> Referral cookies remain valid for 30
+            days from the student's initial visit.
           </CustomText>
           <CustomText type="body-md" className="block">
-            4. <strong>Prohibited Conduct:</strong> Self-referrals and misleading advertising
-            will lead to immediate forfeiture of earnings and account suspension.
+            4. <strong>Prohibited Conduct:</strong> Self-referrals and
+            misleading advertising will lead to immediate forfeiture of
+            earnings and account suspension.
           </CustomText>
         </div>
       </AppModal>
