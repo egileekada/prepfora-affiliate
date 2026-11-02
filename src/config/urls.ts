@@ -10,6 +10,8 @@ export const URLS = {
   REFRESH_TOKEN: "/affiliate/auth/refresh-token",
   USER_PROFILE: "/affiliate/auth/me",
   REFERRALS: "/affiliate/referrals",
+  AFFILIATE_REFERRED_USERS: "/affiliate/referred-users",
+  AFFILIATE_ANALYTICS: "/affiliate/analytics",
   EARNINGS: "/affiliate/earnings",
   WITHDRAW: "/affiliate/withdraw",
   PAYOUT_ACCOUNT: "/affiliate/payout-account",
